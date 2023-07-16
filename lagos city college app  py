@@ -1,0 +1,160 @@
+import google.auth
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+
+class Course:
+    def __init__(self, name, instructor, duration):
+        self.name = name
+        self.instructor = instructor
+        self.duration = duration
+        self.course_id = None
+
+class Student:
+    def __init__(self, name, courses=None):
+        self.name = name
+        self.courses = courses or []
+        self.student_id = None
+
+    def enroll(self, course):
+        self.courses.append(course)
+
+    def drop(self, course):
+        self.courses.remove(course)
+
+class LagosCitySeniorCollege:
+    def __init__(self):
+        self.courses = []
+        self.students = []
+        self.credentials = None
+        self.service = None
+        self.principal_name = "Principal Name"
+        self.creator_name = "Creator Name"
+
+    def authenticate(self):
+        self.credentials = google.auth.default()
+        if not self.credentials or not self.credentials.valid:
+            if self.credentials and self.credentials.expired and self.credentials.refresh_token:
+                self.credentials.refresh(Request())
+            else:
+                flow = google.auth.OAuth2FlowFromClientSecrets('credentials.json', ['https://www.googleapis.com/auth/classroom.courses', 'https://www.googleapis.com/auth/classroom.rosters'], 'offline')
+                self.credentials = flow.run_local_server(port=0)
+        self.service = build('classroom', 'v1', credentials=self.credentials)
+
+    def create_course(self, name, instructor, duration):
+        course = Course(name, instructor, duration)
+        # Create a course using the Google Classroom API
+        course_resource = {'name': course.name}
+        created_course = self.service.courses().create(body=course_resource).execute()
+        course.course_id = created_course['id']
+        self.courses.append(course)
+        return course
+
+    def create_student(self, name):
+        student = Student(name)
+        # Create a student using the Google Classroom API
+        student_resource = {'name': {'fullName': student.name}}
+        created_student = self.service.courses().students().create(courseId='COURSE_ID', body=student_resource).execute()
+        student.student_id = created_student['userId']
+        self.students.append(student)
+        return student
+
+    def enroll_student_in_course(self, student, course):
+        # Enroll a student in a course using the Google Classroom API
+        enrollment_resource = {'userId': student.student_id}
+        self.service.courses().students().create(courseId=course.course_id, body=enrollment_resource).execute()
+        student.enroll(course)
+
+    def drop_student_from_course(self, student, course):
+        # Remove a student from a course using the Google Classroom API
+        self.service.courses().students().delete(courseId=course.course_id, userId=student.student_id).execute()
+        student.drop(course)
+
+    def about_us(self):
+        print("About Us")
+        print("---------")
+        print(f"Principal: {self.principal_name}")
+        print(f"Creator: {ayoola ayomide}")
+
+    def display_courses(self):
+        print("Courses")
+        print("-------")
+        for course in self.courses:
+            print(f"Name: {course.name}")
+            print(f"Instructor: {course.instructor}")
+            print(f"Duration: {course.duration} weeks")
+            print()
+
+    def display_students(self):
+        print("Students")
+        print("--------")
+        for student in self.students:
+            print(f"Name: {student.name}")
+            print(f"Enrolled Courses:")
+            for course in student.courses:
+                print(f"- {course.name}")
+            print()
+
+    def enroll_student(self):
+        student_name = input("Enter student name: ")
+        course_name = input("Enter course name: ")
+
+        student = next((s for s in self.students if s.name == student_name), None)
+        course = next((c for c in self.courses if c.name == course_name), None)
+
+        if student and course:
+            if course in student.courses:
+                print(f"{student.name} is already enrolled in {course.name}.")
+            else:
+                self.enroll_student_in_course(student, course)
+                print(f"{student.name} enrolled in {course.name}.")
+        else:
+            print("Student or course not found.")
+
+    def drop_student(self):
+        student_name = input("Enter student name: ")
+        course_name = input("Enter course name: ")
+
+        student = next((s for s in self.students if s.name == student_name), None)
+        course = next((c for c in self.courses if c.name == course_name), None)
+
+        if student and course:
+            if course in student.courses:
+                self.drop_student_from_course(student, course)
+                print(f"{student.name} dropped from {course.name}.")
+            else:
+                print(f"{student.name} is not enrolled in {course.name}.")
+        else:
+            print("Student or course not found.")
+
+    def show_menu(self):
+        print("Lagos City Senior College")
+        print("-------------------------")
+        print("1. About Us")
+        print("2. Display Courses")
+        print("3. Display Students")
+        print("4. Enroll Student in Course")
+        print("5. Drop Student from Course")
+        print("6. Exit")
+
+    def run(self):
+        self.authenticate()
+        while True:
+            self.show_menu()
+            choice = input("Enter your choice (1-6): ")
+            if choice == "1":
+                self.about_us()
+            elif choice == "2":
+                self.display_courses()
+            elif choice == "3":
+                self.display_students()
+            elif choice == "4":
+                self.enroll_student()
+            elif choice == "5":
+                self.drop_student()
+            elif choice == "6":
+                print("Exiting...")
+                break
+            else:
+                print("Invalid choice. Please try again.")
+
